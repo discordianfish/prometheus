@@ -21,7 +21,7 @@ import (
 )
 
 var (
-	useFiles = flag.Bool("useFiles", false, "Whether to use the files DB or LevelDB")
+	dbType = flag.String("dbType", "files", "Which DB type to use")
 	doPopulate = flag.Bool("doPopulate", false, "Whether to populate the database")
 	totalKeys = flag.Int("totalKeys", 100000, "The number of keys to populate")
 	seekKeys = flag.Int("seekKeys", 10, "The number of keys to query for")
@@ -33,6 +33,7 @@ var (
 
 	levelDBBasePath = flag.String("levelDBBasePath", "/srv/dbbench/leveldb", "The root path for the LevelDB-based storage")
 	filesBasePath = flag.String("filesBasePath", "/srv/dbbench/files", "The root path for the files-based storage")
+	mysqlDsn = flag.String("mysqlDsn", "root:dbbench@tcp(localhost:3306)/dbbench", "The root path for the files-based storage")
 )
 
 
@@ -82,10 +83,15 @@ func main() {
 	rand.Seed(time.Now().Unix())
 
 	var db TestDB
-	if *useFiles {
+	switch *dbType {
+	case "files":
 		db = NewFilesDB(*filesBasePath)
-	} else {
+	case "leveldb":
 		db = NewLevelDB(*levelDBBasePath)
+	case "mysql":
+		db = NewMysqlDB(*mysqlDsn)
+	default:
+		panic("unknown DB type")
 	}
 	defer db.Close()
 

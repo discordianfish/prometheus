@@ -1,11 +1,13 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
 	"os"
 	"path"
 
 	"github.com/jmhodges/levigo"
+	_ "github.com/go-sql-driver/mysql"
 )
 
 type TestDB interface {
@@ -162,4 +164,54 @@ func (l *LevelDB) Close() {
 	l.Flush()
 	l.it.Close()
 	l.db.Close()
+}
+
+// MYSQL
+type MysqlDB struct {
+	conn *sql.DB
+}
+
+func NewMysqlDB(dsn string) *MysqlDB {
+	conn, err := sql.Open("mysql", dsn)
+	if err != nil {
+		panic(err)
+	}
+
+	_, err = conn.Exec("TRUNCATE dbbench")
+	if err != nil {
+		panic(err)
+	}
+
+	return &MysqlDB{
+		conn: conn,
+	}
+}
+
+func (m *MysqlDB) CreateKey(key string, value []byte) {
+	r, err := m.conn.Exec("INSERT INTO dbbench (rkey, val) VALUES (?, ?)", key, value)
+	lii, liiErr := r.LastInsertId()
+	rowsAffected, raErr := r.RowsAffected()
+	fmt.Println("creating key...", rowsAffected, raErr, lii, liiErr)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func (m *MysqlDB) Seek(key string, read bool) {
+	var err error
+	if read {
+		_, err = m.conn.Exec("SELECT rkey, val FROM dbbench WHERE rkey = ?", key)
+	} else {
+		_, err = m.conn.Exec("SELECT rkey FROM dbbench WHERE rkey = ?", key)
+	}
+	if err != nil {
+		panic(err)
+	}
+}
+
+func (m *MysqlDB) Close() {
+	m.conn.Close()
+}
+
+func (m *MysqlDB) Prune() {
 }
