@@ -201,6 +201,7 @@ func lookupAll(name string, qtype uint16) (*dns.Msg, error) {
 
 func lookup(name string, queryType uint16, client *dns.Client, servAddr string, suffix string, edns bool) (*dns.Msg, error) {
 	msg := &dns.Msg{}
+	msg.Id = dns.Id()
 	lname := strings.Join([]string{name, suffix}, ".")
 	msg.SetQuestion(dns.Fqdn(lname), queryType)
 
@@ -216,14 +217,14 @@ func lookup(name string, queryType uint16, client *dns.Client, servAddr string, 
 	}
 
 	response, _, err := client.Exchange(msg, servAddr)
-	if err != nil {
+	if err != nil && err != dns.ErrTruncated {
 		return nil, err
 	}
 	if msg.Id != response.Id {
 		return nil, fmt.Errorf("DNS ID mismatch, request: %d, response: %d", msg.Id, response.Id)
 	}
 
-	if response.MsgHdr.Truncated {
+	if err == dns.ErrTruncated {
 		if client.Net == "tcp" {
 			return nil, fmt.Errorf("got truncated message on tcp")
 		}
@@ -232,6 +233,5 @@ func lookup(name string, queryType uint16, client *dns.Client, servAddr string, 
 		}
 		return lookup(name, queryType, client, servAddr, suffix, !edns)
 	}
-
 	return response, nil
 }
